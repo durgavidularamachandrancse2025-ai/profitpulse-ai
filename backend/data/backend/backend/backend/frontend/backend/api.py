@@ -2,13 +2,14 @@
 ProfitPulse API
 
 Connects financial analysis, anomaly detection,
-investigation, simulation and human approval.
+AI investigation, simulation and human approval.
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
+import os
 
 from profit_engine import analyze_business
 from anomaly_detector import detect_anomalies
@@ -18,12 +19,20 @@ from simulation_engine import ProfitSimulator
 from approval_engine import ApprovalEngine
 
 
+# ==========================================
+# APPLICATION
+# ==========================================
+
 app = FastAPI(
     title="ProfitPulse API",
     description="AI Profit Forensics & Decision Agent",
     version="2.0"
 )
 
+
+# ==========================================
+# CORS
+# ==========================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,17 +43,46 @@ app.add_middleware(
 )
 
 
-DATA_FILE = "../data/sample_transactions.csv"
+# ==========================================
+# DATASET PATH
+# ==========================================
+
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
+DATA_FILE = os.path.join(
+    BASE_DIR,
+    "data",
+    "sample_transactions.csv"
+)
+
+
+# ==========================================
+# ENGINES
+# ==========================================
 
 approval_engine = ApprovalEngine()
+
 simulator = ProfitSimulator()
 
+
+# ==========================================
+# REQUEST MODEL
+# ==========================================
 
 class SimulationRequest(BaseModel):
 
     target: str
+
     reduction_percent: float
 
+
+# ==========================================
+# HEALTH CHECK
+# ==========================================
 
 @app.get("/")
 def home():
@@ -52,155 +90,5 @@ def home():
     return {
         "application": "ProfitPulse",
         "status": "online",
-        "version": "2.0"
-    }
-
-
-@app.get("/financial-summary")
-def financial_summary():
-
-    df = pd.read_csv(DATA_FILE)
-
-    data = {
-        "revenue": df["revenue"].sum(),
-        "product_cost": df["product_cost"].sum(),
-        "operating_cost": df["operating_cost"].sum(),
-        "marketing_cost": df["marketing_cost"].sum()
-    }
-
-    return analyze_business(data)
-
-
-@app.get("/anomalies")
-def anomalies():
-
-    results = detect_anomalies(DATA_FILE)
-
-    return {
-        "count": len(results),
-        "anomalies": results
-    }
-
-
-@app.get("/investigate")
-def investigate():
-
-    anomalies_found = detect_anomalies(DATA_FILE)
-
-    investigations = investigate_anomalies(
-        anomalies_found
-    )
-
-    return {
-        "status": "completed",
-        "count": len(investigations),
-        "investigations": investigations
-    }
-
-
-@app.get("/decisions")
-def decisions():
-
-    anomalies_found = detect_anomalies(DATA_FILE)
-
-    return {
-        "count": len(anomalies_found),
-        "decisions": analyze_anomalies(
-            anomalies_found
-        )
-    }
-
-
-@app.post("/simulate")
-def simulate(request: SimulationRequest):
-
-    df = pd.read_csv(DATA_FILE)
-
-    revenue = df["revenue"].sum()
-
-    product_cost = df["product_cost"].sum()
-
-    operating_cost = df["operating_cost"].sum()
-
-    marketing_cost = df["marketing_cost"].sum()
-
-    result = simulator.simulate(
-
-        revenue=revenue,
-
-        product_cost=product_cost,
-
-        operating_cost=operating_cost,
-
-        marketing_cost=marketing_cost,
-
-        target=request.target,
-
-        reduction_percent=request.reduction_percent
-    )
-
-    return result
-
-
-@app.post("/recommendations")
-def create_recommendation():
-
-    anomalies_found = detect_anomalies(DATA_FILE)
-
-    investigations = investigate_anomalies(
-        anomalies_found
-    )
-
-    if not investigations:
-
-        return {
-            "message": "No recommendation required."
-        }
-
-    investigation = investigations[0]
-
-    recommendation = approval_engine.create_recommendation(
-
-        problem=investigation["anomaly"],
-
-        root_cause=investigation["root_cause"],
-
-        recommendation=investigation[
-            "recommended_action"
-        ],
-
-        expected_impact="Requires simulation",
-
-        confidence=investigation["confidence"]
-    )
-
-    return recommendation
-
-
-@app.post("/recommendations/{recommendation_id}/approve")
-def approve_recommendation(
-    recommendation_id: str
-):
-
-    return approval_engine.approve(
-        recommendation_id
-    )
-
-
-@app.post("/recommendations/{recommendation_id}/reject")
-def reject_recommendation(
-    recommendation_id: str
-):
-
-    return approval_engine.reject(
-        recommendation_id
-    )
-
-
-@app.get("/audit")
-def audit():
-
-    return {
-        "audit_log":
-            approval_engine.get_audit_log()
-    }
+        "version": "2.0",
+        "
